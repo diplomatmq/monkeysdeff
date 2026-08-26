@@ -20,7 +20,6 @@ RUSSIAN_COMMAND_ALIASES = {
     "я": "profile",
     "профиль": "profile",
     "парофиль": "profile",
-    "меню": "menu",
     "варн": "warn",
     "снятьварн": "unwarn",
     "снять варн": "unwarn",
@@ -821,7 +820,7 @@ async def cmd_mywarnings(message: Message):
     await message.answer(text)
 
 
-@router.message(F.text.regexp(r"(?i)^/?(старт|помощь|хелп|я|профиль|парофиль|меню|варн|снятьварн|снять|моиварны|мои|бан|разбан|размут|мут|кик|роль|повысить|понизить|ранги|ранг|инфо|настройки|капча|лимитстикеров|лимитварнов|лимит|времямут|время|админпомощь|админ)\b"))
+@router.message(F.text.regexp(r"(?i)^/?(старт|помощь|хелп|я|профиль|парофиль|варн|снятьварн|снять|моиварны|мои|бан|разбан|размут|мут|кик|роль|повысить|понизить|ранги|ранг|инфо|настройки|капча|лимитстикеров|лимитварнов|лимит|времямут|время|админпомощь|админ)\b"))
 async def cmd_russian_alias(message: Message):
     """Текстовые алиасы команд на русском без / (например: 'мут @user 10m флуд')."""
     normalized = normalize_russian_alias_to_command(message.text)
@@ -834,11 +833,6 @@ async def cmd_russian_alias(message: Message):
     if command_name == "profile":
         from handlers.common import cmd_me
         await cmd_me(mapped_message)
-        return
-
-    if command_name == "menu":
-        from handlers.common import cmd_menu
-        await cmd_menu(mapped_message)
         return
 
     if command_name == "start":
