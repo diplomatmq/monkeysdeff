@@ -15,8 +15,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from config import CAPTCHA_QUESTIONS
-from database import db, init_database
+from database import Database
 from handlers import captcha, antispam, moderation, ranks, settings, common
+
+# Инициализация БД с правильным путём
+import os
+db_path = os.path.join(os.path.dirname(__file__), "data", "bot.db")
+os.makedirs(os.path.dirname(db_path), exist_ok=True)
+db = Database(db_path)
+
+async def init_database():
+    await db.init_db()
 
 def load_token() -> str:
     """Загрузка токена"""

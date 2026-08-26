@@ -216,7 +216,7 @@ async def handle_message(message: Message):
         name = f"@{user.username}" if user and user.username else message.from_user.full_name
 
         await message.answer(
-            f"🚨 <b>{name}</b>: {len(recent_messages)} сообщений → мут {chat.default_mute_duration} мин"
+            f"<tg-emoji emoji-id=\"5391195988213898388\">🚨</tg-emoji> <b>{name}</b>: {len(recent_messages)} сообщений → мут {chat.default_mute_duration} мин"
         )
 
         message_trackers[chat_id][user_id] = []
