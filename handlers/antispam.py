@@ -8,7 +8,7 @@ from aiogram import F, Router
 from aiogram.types import Message
 
 import database
-from config import MESSAGES
+from config import MESSAGES, ALERT
 from handlers.captcha import check_verified, check_mute
 
 router = Router()
@@ -216,7 +216,7 @@ async def handle_message(message: Message):
         name = f"@{user.username}" if user and user.username else message.from_user.full_name
 
         await message.answer(
-            f"<tg-emoji emoji-id=\"5391195988213898388\">🚨</tg-emoji> <b>{name}</b>: {len(recent_messages)} сообщений → мут {chat.default_mute_duration} мин"
+            f"{ALERT} <b>{name}</b>: {len(recent_messages)} сообщений → мут {chat.default_mute_duration} мин"
         )
 
         message_trackers[chat_id][user_id] = []

@@ -1,6 +1,16 @@
 """Конфигурация бота с капчей из 4 кнопок"""
 from dataclasses import dataclass
 from typing import List, Dict
+import os
+
+USE_CUSTOM_EMOJI = os.environ.get("USE_CUSTOM_EMOJI", "1") == "1"
+
+
+def emoji(custom_emoji_id: str, fallback: str) -> str:
+    if USE_CUSTOM_EMOJI and custom_emoji_id:
+        return f'<tg-emoji emoji-id="{custom_emoji_id}">{fallback}</tg-emoji>'
+    return fallback
+
 
 @dataclass
 class CaptchaOption:
@@ -113,7 +123,9 @@ CAPTCHA_QUESTIONS = [
     ),
 ]
 
-# Ранги
+ALERT_EMOJI_ID = "5391195988213898388"
+ALERT = emoji(ALERT_EMOJI_ID, "🚨")
+
 RANKS = {
     "newbie": {"name": "Маленькая обезьянка", "level": 0, "permissions": ["captcha"], "emoji": "👶", "custom_emoji": "5341564243789487821"},
     "user": {"name": "Обезьяна", "level": 1, "permissions": ["captcha", "write"], "emoji": "👤", "custom_emoji": "5974048815789903111"},
@@ -123,85 +135,90 @@ RANKS = {
     "owner": {"name": "Король обезьян", "level": 5, "permissions": ["captcha", "write", "warn", "mute", "unmute", "kick", "ban", "unban", "setrole", "promote", "demote", "info", "settings", "delete", "all"], "emoji": "👑", "custom_emoji": "6003614086460346468"},
 }
 
-# Сообщения
-MESSAGES = {
-    "welcome_new": "👋 <b>Привет, {name}!</b>\n\nЧтобы получить доступ к чату, пройди капчу.\n\n⏱️ У тебя 5 минут.",
-    "welcome_return": "👋 <b>С возвращением, {name}!</b>\n\nДобро пожаловать обратно! 🎉",
-    "captcha_title": "🔐 <b>Проверка на бота</b>",
-    "captcha_question": "{question}",
-    "captcha_time": "⏱️ Осталось {seconds} сек",
-    "captcha_wrong": "❌ <b>Неправильно!</b>\n\nПопробуй ещё раз.",
-    "captcha_success": "✅ <b>Капча пройдена!</b>\n\nДобро пожаловать в чат! 🎉",
-    "captcha_timeout": "❌ <b>Время вышло!</b>\n\nКапча не пройдена.",
-    "captcha_kick": "🚪 {name} не прошёл капчу и был исключён.",
-    "mute_self": "❌ Нельзя замутить себя.",
-    "ban_self": "❌ Нельзя забанить себя.",
-    "kick_self": "❌ Нельзя кикнуть себя.",
-    "user_muted": "<tg-emoji emoji-id=\"5391195988213898388\">🚨</tg-emoji> Ты замьючен до {time}.\nПричина: {reason}",
-    "user_not_found": "❌ Пользователь не найден.",
-    "mute_success": "<tg-emoji emoji-id=\"5391195988213898388\">🚨</tg-emoji> <b>{user}</b> замьючен на {duration} мин.\n📝 {reason}",
-    "unmute_success": "🔊 <b>{user}</b> размьючен!",
-    "ban_success": "🚫 <b>{user}</b> забанен.\n📝 {reason}",
-    "ban_limit": "🚫 <b>{user}</b> забанен (лимит варнов).",
-    "warn_success": "⚠️ <b>{user}</b> +1 варн (#{count}).\n📝 {reason}",
-    "warn_info": "⚠️ У тебя {count}/{max} варнов",
-    "unwarn_success": "✅ У <b>{user}</b> снято предупреждение. Сейчас: {count}/{max}",
-    "kick_success": "🚪 <b>{user}</b> исключён из чата.\n📝 {reason}",
-    "role_set_success": "⭐ <b>{user}</b> получил роль: {role}",
-    "role_set_error": "❌ Неверная роль. Доступно: user, moderator, admin",
 
-    "spam_stickers": "<tg-emoji emoji-id=\"5391195988213898388\">🚨</tg-emoji> <b>{user}</b>: {count} стикеров → мут {duration} мин",
-    "spam_repeat": "<tg-emoji emoji-id=\"5391195988213898388\">🚨</tg-emoji> <b>{user}</b>: повторы → мут {duration} мин",
+def get_messages():
+    alert = ALERT
+    return {
+        "welcome_new": "👋 <b>Привет, {name}!</b>\n\nЧтобы получить доступ к чату, пройди капчу.\n\n⏱️ У тебя 5 минут.",
+        "welcome_return": "👋 <b>С возвращением, {name}!</b>\n\nДобро пожаловать обратно! 🎉",
+        "captcha_title": "🔐 <b>Проверка на бота</b>",
+        "captcha_question": "{question}",
+        "captcha_time": "⏱️ Осталось {seconds} сек",
+        "captcha_wrong": "❌ <b>Неправильно!</b>\n\nПопробуй ещё раз.",
+        "captcha_success": "✅ <b>Капча пройдена!</b>\n\nДобро пожаловать в чат! 🎉",
+        "captcha_timeout": "❌ <b>Время вышло!</b>\n\nКапча не пройдена.",
+        "captcha_kick": "🚪 {name} не прошёл капчу и был исключён.",
+        "mute_self": "❌ Нельзя замутить себя.",
+        "ban_self": "❌ Нельзя забанить себя.",
+        "kick_self": "❌ Нельзя кикнуть себя.",
+        "user_muted": f"{alert} Ты замьючен до {{time}}.\nПричина: {{reason}}",
+        "user_not_found": "❌ Пользователь не найден.",
+        "mute_success": f"{alert} <b>{{user}}</b> замьючен на {{duration}} мин.\n📝 {{reason}}",
+        "unmute_success": "🔊 <b>{user}</b> размьючен!",
+        "ban_success": "🚫 <b>{user}</b> забанен.\n📝 {reason}",
+        "ban_limit": "🚫 <b>{user}</b> забанен (лимит варнов).",
+        "warn_success": "⚠️ <b>{user}</b> +1 варн (#{count}).\n📝 {reason}",
+        "warn_info": "⚠️ У тебя {count}/{max} варнов",
+        "unwarn_success": "✅ У <b>{user}</b> снято предупреждение. Сейчас: {count}/{max}",
+        "kick_success": "🚪 <b>{user}</b> исключён из чата.\n📝 {reason}",
+        "role_set_success": "⭐ <b>{user}</b> получил роль: {role}",
+        "role_set_error": "❌ Неверная роль. Доступно: user, moderator, admin",
 
-    "no_permission": "❌ Нет прав",
-    "promote_success": "⬆️ <b>{user}</b> → {rank}",
-    "demote_success": "⬇️ <b>{user}</b> → {rank}",
-    "settings_help": (
-        "⚙️ <b>Настройки чата:</b>\n\n"
-        "/settings\n"
-        "/setcaptcha on|off\n"
-        "/setcaptcha_timeout [сек]\n"
-        "/setstickerlimit [число]\n"
-        "/setwarnings [число]\n"
-        "/setmutetime [минуты]"
-    ),
-    
-    "help": (
-        "📚 <b>Команды:</b>\n\n"
-        "⚠️ /warn [id|@user|reply] [причина]\n"
-        "/unwarn [id|@user|reply]\n"
-        "/mywarnings\n\n"
-        "🚨 /mute [id|@user|reply] [1h|30m|10s] [причина]\n"
-        "/unmute [id|@user|reply]\n\n"
-        "🚫 /ban [id|@user|reply] [причина]\n"
-        "/unban [id|@user|reply]\n\n"
-        "🚪 /kick [id|@user|reply] [причина]\n\n"
-        "⭐ /setrole [id|@user|reply] [user|moderator|admin]\n"
-        "/promote [id] [ранг]\n"
-        "/demote [id] [ранг]\n"
-        "/ranklist\n\n"
-        "ℹ️ /info [id|@user|reply]\n"
-        "/help"
-    ),
-    "rank_list": (
-        "⭐ <b>Ранги:</b>\n\n"
-        "👶 Маленькая обезьянка\n"
-        "👤 Обезьяна\n"
-        "🤝 Доверенная обезьяна\n"
-        "🛡️ Обезьяний защитник\n"
-        "⚡ Старшая обезьяна\n"
-        "👑 Король обезьян"
-    ),
-    "settings": (
-        "⚙️ <b>Настройки:</b>\n\n"
-        "/settings\n"
-        "/setcaptcha on|off\n"
-        "/setcaptcha_timeout [сек]\n"
-        "/setstickerlimit [число]\n"
-        "/setwarnings [число]\n"
-        "/setmutetime [минуты]"
-    ),
-}
+        "spam_stickers": f"{alert} <b>{{user}}</b>: {{count}} стикеров → мут {{duration}} мин",
+        "spam_repeat": f"{alert} <b>{{user}}</b>: повторы → мут {{duration}} мин",
+
+        "no_permission": "❌ Нет прав",
+        "promote_success": "⬆️ <b>{user}</b> → {rank}",
+        "demote_success": "⬇️ <b>{user}</b> → {rank}",
+        "settings_help": (
+            "⚙️ <b>Настройки чата:</b>\n\n"
+            "/settings\n"
+            "/setcaptcha on|off\n"
+            "/setcaptcha_timeout [сек]\n"
+            "/setstickerlimit [число]\n"
+            "/setwarnings [число]\n"
+            "/setmutetime [минуты]"
+        ),
+        
+        "help": (
+            "📚 <b>Команды:</b>\n\n"
+            "⚠️ /warn [id|@user|reply] [причина]\n"
+            "/unwarn [id|@user|reply]\n"
+            "/mywarnings\n\n"
+            "🚨 /mute [id|@user|reply] [1h|30m|10s] [причина]\n"
+            "/unmute [id|@user|reply]\n\n"
+            "🚫 /ban [id|@user|reply] [причина]\n"
+            "/unban [id|@user|reply]\n\n"
+            "🚪 /kick [id|@user|reply] [причина]\n\n"
+            "⭐ /setrole [id|@user|reply] [user|moderator|admin]\n"
+            "/promote [id] [ранг]\n"
+            "/demote [id] [ранг]\n"
+            "/ranklist\n\n"
+            "ℹ️ /info [id|@user|reply]\n"
+            "/help"
+        ),
+        "rank_list": (
+            "⭐ <b>Ранги:</b>\n\n"
+            f"{emoji(RANKS['newbie']['custom_emoji'], '👶')} Маленькая обезьянка\n"
+            f"{emoji(RANKS['user']['custom_emoji'], '👤')} Обезьяна\n"
+            f"{emoji(RANKS['trusted']['custom_emoji'], '🤝')} Доверенная обезьяна\n"
+            f"{emoji(RANKS['moderator']['custom_emoji'], '🛡️')} Обезьяний защитник\n"
+            f"{emoji(RANKS['admin']['custom_emoji'], '⚡')} Старшая обезьяна\n"
+            f"{emoji(RANKS['owner']['custom_emoji'], '👑')} Король обезьян"
+        ),
+        "settings": (
+            "⚙️ <b>Настройки:</b>\n\n"
+            "/settings\n"
+            "/setcaptcha on|off\n"
+            "/setcaptcha_timeout [сек]\n"
+            "/setstickerlimit [число]\n"
+            "/setwarnings [число]\n"
+            "/setmutetime [минуты]"
+        ),
+    }
+
+
+MESSAGES = get_messages()
 
 PERMISSION_REQUIREMENTS = {
     "warn": "trusted",
@@ -235,7 +252,5 @@ def get_rank_level(rank: str) -> int:
 def get_rank_display(rank: str) -> str:
     if rank in RANKS:
         custom_emoji = RANKS[rank].get('custom_emoji')
-        if custom_emoji:
-            return f"<tg-emoji emoji-id=\"{custom_emoji}\">{RANKS[rank]['emoji']}</tg-emoji> {RANKS[rank]['name']}"
-        return f"{RANKS[rank]['emoji']} {RANKS[rank]['name']}"
+        return f"{emoji(custom_emoji, RANKS[rank]['emoji'])} {RANKS[rank]['name']}"
     return "❓"

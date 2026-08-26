@@ -14,18 +14,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+import database
 from config import CAPTCHA_QUESTIONS
 from database import Database
 from handlers import captcha, antispam, moderation, ranks, settings, common
 
-# Инициализация БД с правильным путём
 import os
 db_path = os.path.join(os.path.dirname(__file__), "data", "bot.db")
 os.makedirs(os.path.dirname(db_path), exist_ok=True)
 db = Database(db_path)
+database.set_database(db)
 
 async def init_database():
-    await db.init_db()
+    await database.init_database()
 
 def load_token() -> str:
     """Загрузка токена"""
@@ -49,23 +50,23 @@ async def main():
     
     await init_database()
     
-    # aiogram 3.x использует DefaultBotProperties
     default = DefaultBotProperties(parse_mode="HTML")
     bot = Bot(token=load_token(), default=default)
     captcha.bot = bot
     dp = Dispatcher(storage=MemoryStorage())
     
-    # Регистрация роутеров
-    dp.include_router(common.router)  # Общие команды (start, help, me)
-    dp.include_router(moderation.router)  # Команды модерации
-    dp.include_router(ranks.router)  # Команды рангов
-    dp.include_router(settings.router)  # Команды настроек
-    dp.include_router(captcha.router)  # Капча
-    dp.include_router(antispam.router)  # Антиспам
+    dp.include_router(common.router)
+    dp.include_router(moderation.router)
+    dp.include_router(ranks.router)
+    dp.include_router(settings.router)
+    dp.include_router(captcha.router)
+    dp.include_router(antispam.router)
     
-    # Фоновые задачи
     asyncio.create_task(antispam.cleanup_task())
     asyncio.create_task(captcha.cleanup_task())
+    
+    logger.info("🧹 Очистка вебхука и ожидающих обновлений...")
+    await bot.delete_webhook(drop_pending_updates=True)
     
     logger.info("✅ Бот запущен!")
     print("[DEBUG] Bot started, waiting for updates...")

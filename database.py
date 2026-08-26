@@ -673,9 +673,15 @@ class Database:
         """Закрытие"""
         await self.async_engine.dispose()
 
-# Глобальный экземпляр
-db = Database()
+db = None
+
+
+def set_database(instance: Database):
+    global db
+    db = instance
+
 
 async def init_database():
-    """Инициализация"""
+    if db is None:
+        raise RuntimeError("Database instance not set. Call set_database() first.")
     await db.init_db()

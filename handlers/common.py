@@ -7,7 +7,6 @@ from aiogram.filters import Command
 
 import database
 from config import MESSAGES, get_rank_display
-from keyboards import get_main_menu_keyboard
 
 router = Router()
 
@@ -106,12 +105,3 @@ async def cmd_me(message: Message):
     )
 
     await message.answer(text)
-
-
-@router.message(Command("menu"))
-async def cmd_menu(message: Message):
-    """Главное меню бота"""
-    await message.answer(
-        "📋 <b>Меню бота</b>\n\nВыберите раздел ниже:",
-        reply_markup=get_main_menu_keyboard(),
-    )
