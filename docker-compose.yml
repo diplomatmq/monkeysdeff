@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  monkeys_deff:
+    build: .
+    container_name: monkeys_deff
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./bot.db:/app/bot.db
+    restart: unless-stopped
