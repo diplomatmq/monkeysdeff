@@ -326,7 +326,12 @@ class Database:
         rank: str = None,
         is_verified: bool | None = None,
     ) -> ChatMember:
-        """Создаёт участника при отсутствии и обновляет ключевые поля при наличии."""
+        """Создаёт участника при отсутствии и обновляет ключевые поля при наличии.
+
+        Особенность: rank='user' не перезаписывает явно установленные ранги
+        (moderator, trusted, admin, owner), чтобы promote/setrole не откатывались
+        обратно при обычных ensure_member вызовах из profile/антиспама.
+        """
         async with self.async_session() as session:
             result = await session.execute(
                 select(ChatMember)
@@ -354,7 +359,12 @@ class Database:
                 if first_name is not None:
                     member.first_name = first_name
                 if rank is not None:
-                    member.rank = rank
+                    # Only update rank if explicitly set to a non-default value
+                    # or if the current rank is "newbie" or not set
+                    if rank != "user":
+                        member.rank = rank
+                    elif (not member.rank) or member.rank in ("newbie",):
+                        member.rank = "user"
                 if is_verified is not None:
                     member.is_verified = is_verified
                 member.last_activity = datetime.datetime.utcnow()
