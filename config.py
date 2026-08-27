@@ -130,7 +130,7 @@ RANKS = {
     "newbie": {"name": "Маленькая обезьянка", "level": 0, "permissions": ["captcha"], "emoji": "👶", "custom_emoji": "5341564243789487821"},
     "user": {"name": "Обезьяна", "level": 1, "permissions": ["captcha", "write"], "emoji": "👤", "custom_emoji": "5974048815789903111"},
     "trusted": {"name": "Доверенная обезьяна", "level": 2, "permissions": ["captcha", "write", "warn"], "emoji": "🤝", "custom_emoji": "5395732581780040886"},
-    "moderator": {"name": "Обезьяний защитник", "level": 3, "permissions": ["captcha", "write", "warn", "mute", "unmute", "kick", "info"], "emoji": "🛡️", "custom_emoji": "5467810048631658566"},
+    "moderator": {"name": "Обезьяний защитник", "level": 3, "permissions": ["captcha", "write", "warn", "mute", "info"], "emoji": "🛡️", "custom_emoji": "5467810048631658566"},
     "admin": {"name": "Старшая обезьяна", "level": 4, "permissions": ["captcha", "write", "warn", "mute", "unmute", "kick", "ban", "unban", "setrole", "promote", "demote", "info", "settings"], "emoji": "⚡", "custom_emoji": "6129805886383723340"},
     "owner": {"name": "Король обезьян", "level": 5, "permissions": ["captcha", "write", "warn", "mute", "unmute", "kick", "ban", "unban", "setrole", "promote", "demote", "info", "settings", "delete", "all"], "emoji": "👑", "custom_emoji": "6003614086460346468"},
 }
@@ -223,8 +223,8 @@ MESSAGES = get_messages()
 PERMISSION_REQUIREMENTS = {
     "warn": "trusted",
     "mute": "moderator",
-    "unmute": "moderator",
-    "kick": "moderator",
+    "unmute": "admin",
+    "kick": "admin",
     "ban": "admin",
     "unban": "admin",
     "setrole": "admin",

@@ -17,7 +17,6 @@ RUSSIAN_COMMAND_ALIASES = {
     "старт": "start",
     "помощь": "help",
     "хелп": "help",
-    "я": "profile",
     "профиль": "profile",
     "парофиль": "profile",
     "варн": "warn",
@@ -742,6 +741,10 @@ async def cmd_setrole(message: Message):
             return
 
     await database.db.update_member(chat_id, target_id, rank=role)
+
+    from handlers.ranks import sync_rank_with_telegram
+    await sync_rank_with_telegram(message, target_id, role)
+
     target_db = await database.db.get_member(chat_id, target_id)
     name = format_user_name(target_id, target_db.username if target_db else None)
     await message.answer(MESSAGES["role_set_success"].format(user=name, role=role))

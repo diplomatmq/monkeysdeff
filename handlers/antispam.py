@@ -1,17 +1,36 @@
 """Антиспам с поддержкой множества чатов"""
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict
 from typing import Dict, List
 
 from aiogram import F, Router
-from aiogram.types import Message
+from aiogram.types import Message, ChatPermissions
+from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 
 import database
 from config import MESSAGES, ALERT
 from handlers.captcha import check_verified, check_mute
+from handlers.moderation import ensure_bot_can_restrict
 
 router = Router()
+
+
+async def apply_telegram_mute(message: Message, user_id: int, minutes: int) -> bool:
+    if not await ensure_bot_can_restrict(message, "антиспам"):
+        return False
+    try:
+        await message.bot.restrict_chat_member(
+            chat_id=message.chat.id,
+            user_id=user_id,
+            permissions=ChatPermissions(can_send_messages=False),
+            until_date=datetime.utcnow() + timedelta(minutes=minutes),
+        )
+        return True
+    except TelegramForbiddenError:
+        return False
+    except TelegramBadRequest:
+        return False
 
 # Трекеры спама
 sticker_trackers: Dict[int, Dict[int, List[datetime]]] = defaultdict(lambda: defaultdict(list))
@@ -114,29 +133,40 @@ async def handle_sticker(message: Message):
     print(f"[DEBUG] Recent stickers: {len(recent)} (limit: {chat.sticker_limit})")
     
     if len(recent) >= chat.sticker_limit:
+        try:
+            chat_member = await message.chat.get_member(user_id)
+            if chat_member.status in ["creator", "administrator"]:
+                sticker_trackers[chat_id][user_id] = []
+                return
+        except Exception:
+            pass
+
         # Спам стикерами
         print(f"[DEBUG] SPAM DETECTED! Muting user {user_id}")
         await database.db.log_spam(chat_id, user_id, "sticker", len(recent), "mute")
-        
+
+        minutes = chat.sticker_mute_duration
         await database.db.mute_user(
             chat_id, user_id, 0,
-            chat.sticker_mute_duration,
+            minutes,
             f"Спам стикерами ({len(recent)} шт)"
         )
-        
+
+        await apply_telegram_mute(message, user_id, minutes)
+
         user = await database.db.get_member(chat_id, user_id)
         name = f"@{user.username}" if user and user.username else message.from_user.full_name
-        
+
         await message.answer(
             MESSAGES["spam_stickers"].format(
                 user=name,
                 count=len(recent),
-                duration=chat.sticker_mute_duration
+                duration=minutes
             )
         )
-        
+
         sticker_trackers[chat_id][user_id] = []
-        
+
         try:
             await message.delete()
         except Exception:
@@ -201,22 +231,33 @@ async def handle_message(message: Message):
 
     print(f"[DEBUG] Recent messages: {len(recent_messages)} (flood limit: 5)")
 
-    if len(recent_messages) >= 5:  # 5 сообщений за timeout секунд
+    if len(recent_messages) >= 5:
+        try:
+            chat_member = await message.chat.get_member(user_id)
+            if chat_member.status in ["creator", "administrator"]:
+                message_trackers[chat_id][user_id] = []
+                return
+        except Exception:
+            pass
+
         # Флуд
         print(f"[DEBUG] FLOOD DETECTED! Muting user {user_id}")
         await database.db.log_spam(chat_id, user_id, "flood", len(recent_messages), "mute")
 
+        minutes = chat.default_mute_duration
         await database.db.mute_user(
             chat_id, user_id, 0,
-            chat.default_mute_duration,
+            minutes,
             f"Флуд ({len(recent_messages)} сообщений)"
         )
+
+        await apply_telegram_mute(message, user_id, minutes)
 
         user = await database.db.get_member(chat_id, user_id)
         name = f"@{user.username}" if user and user.username else message.from_user.full_name
 
         await message.answer(
-            f"{ALERT} <b>{name}</b>: {len(recent_messages)} сообщений → мут {chat.default_mute_duration} мин"
+            f"{ALERT} <b>{name}</b>: {len(recent_messages)} сообщений → мут {minutes} мин"
         )
 
         message_trackers[chat_id][user_id] = []
@@ -249,28 +290,39 @@ async def handle_message(message: Message):
         print(f"[DEBUG] Repeat count: {count} (limit: {chat.repeat_limit})")
         
         if count >= chat.repeat_limit:
+            try:
+                chat_member = await message.chat.get_member(user_id)
+                if chat_member.status in ["creator", "administrator"]:
+                    repeat_trackers[chat_id][user_id] = []
+                    return
+            except Exception:
+                pass
+
             # Спам повторами
             print(f"[DEBUG] REPEAT SPAM DETECTED! Muting user {user_id}")
             await database.db.log_spam(chat_id, user_id, "repeat", count, "mute")
-            
+
+            minutes = chat.default_mute_duration
             await database.db.mute_user(
                 chat_id, user_id, 0,
-                chat.default_mute_duration,
+                minutes,
                 f"Повторяющиеся сообщения ({count} раз)"
             )
-            
+
+            await apply_telegram_mute(message, user_id, minutes)
+
             user = await database.db.get_member(chat_id, user_id)
             name = f"@{user.username}" if user and user.username else message.from_user.full_name
-            
+
             await message.answer(
                 MESSAGES["spam_repeat"].format(
                     user=name,
-                    duration=chat.default_mute_duration
+                    duration=minutes
                 )
             )
-            
+
             repeat_trackers[chat_id][user_id] = []
-            
+
             try:
                 await message.delete()
             except Exception:
