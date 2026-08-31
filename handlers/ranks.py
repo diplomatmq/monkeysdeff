@@ -144,7 +144,30 @@ async def cmd_promote(message: Message):
     parts = message.text.split()
     reply_target = message.reply_to_message is not None
     
-    target_arg = parts[1] if len(parts) > 1 and not reply_target else None
+    # Определяем аргументы: может быть "повысить @username 2" или "повысить 2 @username"
+    target_arg = None
+    steps_arg = None
+    
+    if reply_target:
+        # Если ответ на сообщение, то первый аргумент после команды - это количество шагов
+        if len(parts) > 1:
+            try:
+                steps_arg = parts[1]
+            except ValueError:
+                pass
+    else:
+        # Если не ответ, нужно определить что username, а что число
+        if len(parts) >= 2:
+            # Проверяем второй аргумент
+            try:
+                # Если это число, значит формат: /promote [число] [@username]
+                steps_arg = parts[1]
+                target_arg = parts[2] if len(parts) > 2 else None
+            except ValueError:
+                # Если не число, значит формат: /promote [@username] [число]
+                target_arg = parts[1]
+                steps_arg = parts[2] if len(parts) > 2 else None
+    
     target = await _resolve_target()(message, target_arg)
     if target is None:
         if len(parts) < 2 and not reply_target:
@@ -152,6 +175,7 @@ async def cmd_promote(message: Message):
                 "❌ /promote [id|@username|reply] [число|повысить...]\n\n"
                 "Примеры:\n"
                 "/promote @username 2\n"
+                "/promote 2 @username\n"
                 "/promote (в ответ на сообщение)"
             )
         else:
@@ -175,20 +199,14 @@ async def cmd_promote(message: Message):
         await message.answer(user_rank if isinstance(user_rank, str) and user_rank.startswith("❌") else MESSAGES["no_permission"])
         return
 
+    # Парсим количество шагов
     steps = 1
-    if reply_target:
-        if len(parts) > 1:
-            try:
-                steps = max(1, int(parts[1]))
-            except ValueError:
-                for p in parts[1:]:
-                    if p.lower() in {"повысить", "повыш"}:
-                        steps += 1
-    elif len(parts) > 2:
+    if steps_arg:
         try:
-            steps = max(1, int(parts[2]))
+            steps = max(1, int(steps_arg))
         except ValueError:
-            for p in parts[2:]:
+            # Если не число, проверяем на слова "повысить"
+            for p in parts[1:]:
                 if p.lower() in {"повысить", "повыш"}:
                     steps += 1
 
@@ -236,7 +254,30 @@ async def cmd_demote(message: Message):
     parts = message.text.split()
     reply_target = message.reply_to_message is not None
 
-    target_arg = parts[1] if len(parts) > 1 and not reply_target else None
+    # Определяем аргументы: может быть "понизить @username 2" или "понизить 2 @username"
+    target_arg = None
+    steps_arg = None
+    
+    if reply_target:
+        # Если ответ на сообщение, то первый аргумент после команды - это количество шагов
+        if len(parts) > 1:
+            try:
+                steps_arg = parts[1]
+            except ValueError:
+                pass
+    else:
+        # Если не ответ, нужно определить что username, а что число
+        if len(parts) >= 2:
+            # Проверяем второй аргумент
+            try:
+                # Если это число, значит формат: /demote [число] [@username]
+                steps_arg = parts[1]
+                target_arg = parts[2] if len(parts) > 2 else None
+            except ValueError:
+                # Если не число, значит формат: /demote [@username] [число]
+                target_arg = parts[1]
+                steps_arg = parts[2] if len(parts) > 2 else None
+
     target = await _resolve_target()(message, target_arg)
     if target is None:
         if len(parts) < 2 and not reply_target:
@@ -244,6 +285,7 @@ async def cmd_demote(message: Message):
                 "❌ /demote [id|@username|reply] [число|понизить...]\n\n"
                 "Примеры:\n"
                 "/demote @username 2\n"
+                "/demote 2 @username\n"
                 "/demote (в ответ на сообщение)"
             )
         else:
@@ -267,20 +309,14 @@ async def cmd_demote(message: Message):
         await message.answer(user_rank if isinstance(user_rank, str) and user_rank.startswith("❌") else MESSAGES["no_permission"])
         return
 
+    # Парсим количество шагов
     steps = 1
-    if reply_target:
-        if len(parts) > 1:
-            try:
-                steps = max(1, int(parts[1]))
-            except ValueError:
-                for p in parts[1:]:
-                    if p.lower() in {"понизить", "пониж"}:
-                        steps += 1
-    elif len(parts) > 2:
+    if steps_arg:
         try:
-            steps = max(1, int(parts[2]))
+            steps = max(1, int(steps_arg))
         except ValueError:
-            for p in parts[2:]:
+            # Если не число, проверяем на слова "понизить"
+            for p in parts[1:]:
                 if p.lower() in {"понизить", "пониж"}:
                     steps += 1
 
