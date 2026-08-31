@@ -134,7 +134,6 @@ async def start_captcha(chat_id: int, user_id: int, name: str, username: str = N
                 user_id=user_id,
                 username=username,
                 first_name=name,
-                rank="user",
                 is_verified=True,
             )
             return
@@ -292,20 +291,29 @@ async def on_user_message_before_captcha(message: Message):
 
     # Убеждаемся, что пользователь есть в БД
     chat_status = await get_chat_member_status(chat_id, user_id)
-    rank = "user"
+    rank = None
     if chat_status == "creator":
         rank = "owner"
     elif chat_status == "administrator":
         rank = "admin"
     
-    await database.db.ensure_member(
-        chat_id=chat_id,
-        user_id=user_id,
-        username=message.from_user.username,
-        first_name=message.from_user.full_name,
-        rank=rank,
-        is_verified=True,
-    )
+    if rank:
+        await database.db.ensure_member(
+            chat_id=chat_id,
+            user_id=user_id,
+            username=message.from_user.username,
+            first_name=message.from_user.full_name,
+            rank=rank,
+            is_verified=True,
+        )
+    else:
+        await database.db.ensure_member(
+            chat_id=chat_id,
+            user_id=user_id,
+            username=message.from_user.username,
+            first_name=message.from_user.full_name,
+            is_verified=True,
+        )
 
     # Счётчик сообщений нужен для профиля пользователя внутри конкретного чата.
     try:
@@ -357,8 +365,9 @@ async def on_captcha_answer(callback: CallbackQuery):
     chat_id = callback.message.chat.id
     user_id = callback.from_user.id
     
+    # Проверяем, что капча существует для этого пользователя
     if chat_id not in active_captchas or user_id not in active_captchas[chat_id]:
-        await callback.answer("Капча истекла", show_alert=True)
+        await callback.answer("Эта капча не для вас", show_alert=True)
         try:
             await callback.message.delete()
         except Exception:
@@ -367,9 +376,18 @@ async def on_captcha_answer(callback: CallbackQuery):
     
     captcha = active_captchas[chat_id][user_id]
     
+    # Проверяем, что captcha_id совпадает (защита от повторных нажатий)
     if captcha["id"] != captcha_id:
         await callback.answer()
         return
+    
+    # Дополнительная проверка: user_id из captcha_id должен совпадать с нажавшим
+    captcha_id_parts = captcha_id.split("_")
+    if len(captcha_id_parts) >= 3:
+        captcha_user_id = int(captcha_id_parts[1])
+        if captcha_user_id != user_id:
+            await callback.answer("Эта капча не для вас", show_alert=True)
+            return
     
     # Удаляем сообщение
     try:
@@ -424,7 +442,7 @@ async def check_verified(chat_id: int, user_id: int) -> bool:
         return False
 
     chat_status = await get_chat_member_status(chat_id, user_id)
-    rank = "user"
+    rank = None
     if chat_status == "creator":
         rank = "owner"
     elif chat_status == "administrator":
@@ -443,7 +461,6 @@ async def check_verified(chat_id: int, user_id: int) -> bool:
         await database.db.ensure_member(
             chat_id=chat_id,
             user_id=user_id,
-            rank=rank,
             is_verified=True,
         )
         return True
@@ -452,7 +469,6 @@ async def check_verified(chat_id: int, user_id: int) -> bool:
     await database.db.ensure_member(
         chat_id=chat_id,
         user_id=user_id,
-        rank=member.rank if member.rank and member.rank != "newbie" else rank,
         is_verified=True,
     )
     return True

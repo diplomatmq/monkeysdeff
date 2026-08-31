@@ -280,7 +280,6 @@ async def ensure_target_in_db(message: Message, target_id: int, target_username:
         user_id=target_id,
         username=username,
         first_name=first_name,
-        rank="user",
         is_verified=True,
     )
 

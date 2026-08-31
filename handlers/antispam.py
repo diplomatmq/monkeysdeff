@@ -113,7 +113,6 @@ async def handle_sticker(message: Message):
         user_id=user_id,
         username=message.from_user.username,
         first_name=message.from_user.full_name,
-        rank="user",
         is_verified=True,
     )
     
@@ -211,7 +210,6 @@ async def handle_message(message: Message):
         user_id=user_id,
         username=message.from_user.username,
         first_name=message.from_user.full_name,
-        rank="user",
         is_verified=True,
     )
     

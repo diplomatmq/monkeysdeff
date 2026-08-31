@@ -92,7 +92,6 @@ async def cmd_me(message: Message):
         user_id=user_id,
         username=username,
         first_name=full_name,
-        rank=rank,
         is_verified=True,
     )
 
