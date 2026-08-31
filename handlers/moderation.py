@@ -33,6 +33,7 @@ RUSSIAN_COMMAND_ALIASES = {
     "роль": "setrole",
     "повысить": "promote",
     "понизить": "demote",
+    "админы": "admins",
     "ранги": "ranklist",
     "ранг": "rank",
     "инфо": "info",
@@ -822,7 +823,7 @@ async def cmd_mywarnings(message: Message):
     await message.answer(text)
 
 
-@router.message(F.text.regexp(r"(?i)^/?(старт|помощь|хелп|я|профиль|парофиль|варн|снятьварн|снять|моиварны|мои|бан|разбан|размут|мут|кик|роль|повысить|понизить|ранги|ранг|инфо|настройки|капча|лимитстикеров|лимитварнов|лимит|времямут|время|админпомощь|админ)\b"))
+@router.message(F.text.regexp(r"(?i)^/?(старт|помощь|хелп|я|профиль|парофиль|варн|снятьварн|снять|моиварны|мои|бан|разбан|размут|мут|кик|роль|повысить|понизить|ранги|ранг|инфо|настройки|капча|лимитстикеров|лимитварнов|лимит|времямут|время|админпомощь|админ|админы)\b"))
 async def cmd_russian_alias(message: Message):
     """Текстовые алиасы команд на русском без / (например: 'мут @user 10m флуд')."""
     normalized = normalize_russian_alias_to_command(message.text)
@@ -860,6 +861,11 @@ async def cmd_russian_alias(message: Message):
     if command_name == "ranklist":
         from handlers.ranks import cmd_ranklist
         await cmd_ranklist(mapped_message)
+        return
+
+    if command_name == "admins":
+        from handlers.ranks import cmd_admins
+        await cmd_admins(mapped_message)
         return
 
     if command_name == "rank":

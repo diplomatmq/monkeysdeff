@@ -355,6 +355,75 @@ async def cmd_ranklist(message: Message):
     """Список рангов"""
     await message.answer(MESSAGES["rank_list"])
 
+@router.message(Command("admins"))
+async def cmd_admins(message: Message):
+    """Список администраторов и модераторов по рангам"""
+    if message.chat.type not in {"group", "supergroup"}:
+        await message.answer("❌ Эта команда работает только в группах.")
+        return
+
+    chat_id = message.chat.id
+    user_id = message.from_user.id
+
+    # Проверяем права - только trusted и выше могут видеть список
+    member = await database.db.get_member(chat_id, user_id)
+    if not member:
+        await message.answer("❌ Вы не зарегистрированы. /captcha")
+        return
+
+    current_level = get_rank_level(member.rank)
+    if current_level < 2:  # trusted
+        await message.answer("❌ Эта команда доступна только с ранга Доверенная обезьяна и выше.")
+        return
+
+    # Получаем всех участников с рангами от trusted (2) до owner (5)
+    all_members = await database.db.get_chat_members(chat_id)
+    
+    # Фильтруем по рангам
+    rank_groups = {
+        "trusted": [],
+        "moderator": [],
+        "admin": [],
+        "owner": []
+    }
+
+    for m in all_members:
+        if m.rank in rank_groups:
+            name = f"@{m.username}" if m.username else m.first_name or f"ID:{m.user_id}"
+            rank_groups[m.rank].append(name)
+
+    # Формируем сообщение
+    text = f"👑 <b>Администрация чата:</b>\n\n"
+
+    if rank_groups["owner"]:
+        text += f"{get_rank_display('owner')}\n"
+        for name in rank_groups["owner"]:
+            text += f"  • {name}\n"
+        text += "\n"
+
+    if rank_groups["admin"]:
+        text += f"{get_rank_display('admin')}\n"
+        for name in rank_groups["admin"]:
+            text += f"  • {name}\n"
+        text += "\n"
+
+    if rank_groups["moderator"]:
+        text += f"{get_rank_display('moderator')}\n"
+        for name in rank_groups["moderator"]:
+            text += f"  • {name}\n"
+        text += "\n"
+
+    if rank_groups["trusted"]:
+        text += f"{get_rank_display('trusted')}\n"
+        for name in rank_groups["trusted"]:
+            text += f"  • {name}\n"
+        text += "\n"
+
+    if not any(rank_groups.values()):
+        text += "📭 В чате нет администраторов и модераторов."
+
+    await message.answer(text)
+
 @router.message(Command("rank"))
 async def cmd_rank(message: Message):
     """Мой ранг"""
