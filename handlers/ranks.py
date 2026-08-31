@@ -389,8 +389,10 @@ async def cmd_admins(message: Message):
 
     for m in all_members:
         if m.rank in rank_groups:
-            name = f"@{m.username}" if m.username else m.first_name or f"ID:{m.user_id}"
-            rank_groups[m.rank].append(name)
+            # Показываем только если есть username или first_name
+            if m.username or m.first_name:
+                name = f"@{m.username}" if m.username else m.first_name
+                rank_groups[m.rank].append(name)
 
     # Формируем сообщение
     text = f"👑 <b>Администрация чата:</b>\n\n"
