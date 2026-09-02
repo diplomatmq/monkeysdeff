@@ -368,10 +368,6 @@ async def on_captcha_answer(callback: CallbackQuery):
     # Проверяем, что капча существует для этого пользователя
     if chat_id not in active_captchas or user_id not in active_captchas[chat_id]:
         await callback.answer("Эта капча не для вас", show_alert=True)
-        try:
-            await callback.message.delete()
-        except Exception:
-            pass
         return
     
     captcha = active_captchas[chat_id][user_id]
