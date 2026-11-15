@@ -156,7 +156,7 @@ async def handle_sticker(message: Message):
         user = await database.db.get_member(chat_id, user_id)
         name = f"@{user.username}" if user and user.username else message.from_user.full_name
 
-        await message.answer(
+        await message.reply(
             MESSAGES["spam_stickers"].format(
                 user=name,
                 count=len(recent),
@@ -254,7 +254,7 @@ async def handle_message(message: Message):
         user = await database.db.get_member(chat_id, user_id)
         name = f"@{user.username}" if user and user.username else message.from_user.full_name
 
-        await message.answer(
+        await message.reply(
             f"{ALERT} <b>{name}</b>: {len(recent_messages)} сообщений → мут {minutes} мин"
         )
 
@@ -312,7 +312,7 @@ async def handle_message(message: Message):
             user = await database.db.get_member(chat_id, user_id)
             name = f"@{user.username}" if user and user.username else message.from_user.full_name
 
-            await message.answer(
+            await message.reply(
                 MESSAGES["spam_repeat"].format(
                     user=name,
                     duration=minutes

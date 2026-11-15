@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 import database
 from config import CAPTCHA_QUESTIONS
 from database import Database
-from handlers import captcha, antispam, moderation, ranks, settings, common
+from handlers import captcha, antispam, moderation, ranks, settings, common, currency, top
 
 import os
 db_path = os.path.join(os.path.dirname(__file__), "data", "bot.db")
@@ -59,6 +59,10 @@ async def main():
     dp.include_router(moderation.router)
     dp.include_router(ranks.router)
     dp.include_router(settings.router)
+    # currency и top идут раньше captcha: их фильтры ловят конкретные запросы
+    # ("1g", "топ сутки"), а captcha принимает все остальные текстовые сообщения.
+    dp.include_router(currency.router)
+    dp.include_router(top.router)
     dp.include_router(captcha.router)
     dp.include_router(antispam.router)
     

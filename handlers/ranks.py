@@ -138,7 +138,7 @@ async def _get_target_full_name(message: Message, target_id: int) -> Tuple[str |
 async def cmd_promote(message: Message):
     """Повышение ранга: /promote [id|@username|reply] [число|повысить...]"""
     if message.chat.type not in {"group", "supergroup"}:
-        await message.answer("❌ Эта команда работает только в группах.")
+        await message.reply("❌ Эта команда работает только в группах.")
         return
 
     parts = message.text.split()
@@ -171,7 +171,7 @@ async def cmd_promote(message: Message):
     target = await _resolve_target()(message, target_arg)
     if target is None:
         if len(parts) < 2 and not reply_target:
-            await message.answer(
+            await message.reply(
                 "❌ /promote [id|@username|reply] [число|повысить...]\n\n"
                 "Примеры:\n"
                 "/promote @username 2\n"
@@ -179,12 +179,12 @@ async def cmd_promote(message: Message):
                 "/promote (в ответ на сообщение)"
             )
         else:
-            await message.answer("❌ Не удалось определить цель. Используйте ответ на сообщение, ID или @username.")
+            await message.reply("❌ Не удалось определить цель. Используйте ответ на сообщение, ID или @username.")
         return
 
     target_id, target_username = target
     if target_id == message.from_user.id:
-        await message.answer("❌ Нельзя повысить себя!")
+        await message.reply("❌ Нельзя повысить себя!")
         return
 
     username_from_chat, full_name_from_chat = await _get_target_full_name(message, target_id)
@@ -196,7 +196,7 @@ async def cmd_promote(message: Message):
 
     can_promote, user_rank = await check_promote_rights(message, target_id)
     if not can_promote:
-        await message.answer(user_rank if isinstance(user_rank, str) and user_rank.startswith("❌") else MESSAGES["no_permission"])
+        await message.reply(user_rank if isinstance(user_rank, str) and user_rank.startswith("❌") else MESSAGES["no_permission"])
         return
 
     # Парсим количество шагов
@@ -222,16 +222,16 @@ async def cmd_promote(message: Message):
             break
     
     if not target_rank_name:
-        await message.answer("❌ Нельзя повысить выше (уже максимальный ранг)")
+        await message.reply("❌ Нельзя повысить выше (уже максимальный ранг)")
         return
     
     if target_rank_name == "owner":
-        await message.answer("❌ Нельзя повысить до владельца!")
+        await message.reply("❌ Нельзя повысить до владельца!")
         return
     
     user_level = get_rank_level(user_rank)
     if user_rank != "owner" and target_level >= user_level:
-        await message.answer("❌ Нельзя повысить до вашего уровня или выше!")
+        await message.reply("❌ Нельзя повысить до вашего уровня или выше!")
         return
 
     await database.db.update_member(message.chat.id, target_id, rank=target_rank_name)
@@ -242,13 +242,13 @@ async def cmd_promote(message: Message):
     name = f"@{final_username}" if final_username else f"ID:{target_id}"
     rank_display = get_rank_display(target_rank_name)
 
-    await message.answer(MESSAGES["promote_success"].format(user=name, rank=rank_display))
+    await message.reply(MESSAGES["promote_success"].format(user=name, rank=rank_display))
 
 @router.message(Command("demote"))
 async def cmd_demote(message: Message):
     """Понижение ранга: /demote [id|@username|reply] [число|понизить...]"""
     if message.chat.type not in {"group", "supergroup"}:
-        await message.answer("❌ Эта команда работает только в группах.")
+        await message.reply("❌ Эта команда работает только в группах.")
         return
 
     parts = message.text.split()
@@ -281,7 +281,7 @@ async def cmd_demote(message: Message):
     target = await _resolve_target()(message, target_arg)
     if target is None:
         if len(parts) < 2 and not reply_target:
-            await message.answer(
+            await message.reply(
                 "❌ /demote [id|@username|reply] [число|понизить...]\n\n"
                 "Примеры:\n"
                 "/demote @username 2\n"
@@ -289,12 +289,12 @@ async def cmd_demote(message: Message):
                 "/demote (в ответ на сообщение)"
             )
         else:
-            await message.answer("❌ Не удалось определить цель. Используйте ответ на сообщение, ID или @username.")
+            await message.reply("❌ Не удалось определить цель. Используйте ответ на сообщение, ID или @username.")
         return
 
     target_id, target_username = target
     if target_id == message.from_user.id:
-        await message.answer("❌ Нельзя понизить себя!")
+        await message.reply("❌ Нельзя понизить себя!")
         return
 
     username_from_chat, full_name_from_chat = await _get_target_full_name(message, target_id)
@@ -306,7 +306,7 @@ async def cmd_demote(message: Message):
 
     can_demote, user_rank = await check_promote_rights(message, target_id)
     if not can_demote:
-        await message.answer(user_rank if isinstance(user_rank, str) and user_rank.startswith("❌") else MESSAGES["no_permission"])
+        await message.reply(user_rank if isinstance(user_rank, str) and user_rank.startswith("❌") else MESSAGES["no_permission"])
         return
 
     # Парсим количество шагов
@@ -332,12 +332,12 @@ async def cmd_demote(message: Message):
             break
     
     if not target_rank_name:
-        await message.answer("❌ Нельзя понизить ниже (уже минимальный ранг)")
+        await message.reply("❌ Нельзя понизить ниже (уже минимальный ранг)")
         return
 
     user_level = get_rank_level(user_rank)
     if user_rank != "owner" and target_level >= user_level:
-        await message.answer("❌ Нельзя понизить пользователя до вашего уровня или выше!")
+        await message.reply("❌ Нельзя понизить пользователя до вашего уровня или выше!")
         return
 
     await database.db.update_member(message.chat.id, target_id, rank=target_rank_name)
@@ -348,18 +348,18 @@ async def cmd_demote(message: Message):
     name = f"@{final_username}" if final_username else f"ID:{target_id}"
     rank_display = get_rank_display(target_rank_name)
 
-    await message.answer(MESSAGES["demote_success"].format(user=name, rank=rank_display))
+    await message.reply(MESSAGES["demote_success"].format(user=name, rank=rank_display))
 
 @router.message(Command("ranklist"))
 async def cmd_ranklist(message: Message):
     """Список рангов"""
-    await message.answer(MESSAGES["rank_list"])
+    await message.reply(MESSAGES["rank_list"])
 
 @router.message(Command("admins"))
 async def cmd_admins(message: Message):
     """Список администраторов и модераторов по рангам"""
     if message.chat.type not in {"group", "supergroup"}:
-        await message.answer("❌ Эта команда работает только в группах.")
+        await message.reply("❌ Эта команда работает только в группах.")
         return
 
     chat_id = message.chat.id
@@ -368,12 +368,12 @@ async def cmd_admins(message: Message):
     # Проверяем права - только trusted и выше могут видеть список
     member = await database.db.get_member(chat_id, user_id)
     if not member:
-        await message.answer("❌ Вы не зарегистрированы. /captcha")
+        await message.reply("❌ Вы не зарегистрированы. /captcha")
         return
 
     current_level = get_rank_level(member.rank)
     if current_level < 2:  # trusted
-        await message.answer("❌ Эта команда доступна только с ранга Доверенная обезьяна и выше.")
+        await message.reply("❌ Эта команда доступна только с ранга Доверенная обезьяна и выше.")
         return
 
     # Получаем всех участников с рангами от trusted (2) до owner (5)
@@ -424,7 +424,7 @@ async def cmd_admins(message: Message):
     if not any(rank_groups.values()):
         text += "📭 В чате нет администраторов и модераторов."
 
-    await message.answer(text)
+    await message.reply(text)
 
 @router.message(Command("rank"))
 async def cmd_rank(message: Message):
@@ -435,7 +435,7 @@ async def cmd_rank(message: Message):
     member = await database.db.get_member(chat_id, user_id)
     
     if not member:
-        await message.answer("❌ Вы не зарегистрированы. /captcha")
+        await message.reply("❌ Вы не зарегистрированы. /captcha")
         return
     
     rank_display = get_rank_display(member.rank)
@@ -458,7 +458,7 @@ async def cmd_rank(message: Message):
     if next_rank:
         text += f"\n📈 Следующий: {next_rank}"
     
-    await message.answer(text)
+    await message.reply(text)
 
 @router.message(Command("info"))
 async def cmd_info(message: Message):
@@ -475,7 +475,7 @@ async def cmd_info(message: Message):
     else:
         target = await _resolve_target()(message, target_arg)
         if target is None:
-            await message.answer("❌ Не удалось определить цель. Используйте /info [id|@username|reply]")
+            await message.reply("❌ Не удалось определить цель. Используйте /info [id|@username|reply]")
             return
         target_id, target_username = target
 
@@ -513,4 +513,4 @@ async def cmd_info(message: Message):
         text += f"⚠️ Варнов: {db_member.warnings}\n"
         text += f"💬 Сообщений: {db_member.messages_count or 0}\n"
     
-    await message.answer(text)
+    await message.reply(text)

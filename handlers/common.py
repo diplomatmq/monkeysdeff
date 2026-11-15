@@ -27,7 +27,8 @@ def build_member_profile_text(user_name: str, username: str | None, member, chat
     messages_count = getattr(member, "messages_count", 0) or 0
     warnings = getattr(member, "warnings", 0) or 0
     created_at = getattr(member, "created_at", None) or datetime.utcnow()
-    joined_days = max(0, (datetime.utcnow() - created_at).days)
+    joined_days = max(0, (datetime.utcnow().date() - created_at.date()).days)
+    days_label = "сегодня" if joined_days == 0 else f"{joined_days} дн."
     verified = "✅" if getattr(member, "is_verified", False) else "❌"
     muted = "✅" if getattr(member, "is_muted", False) else "❌"
 
@@ -40,7 +41,7 @@ def build_member_profile_text(user_name: str, username: str | None, member, chat
     text += f"⭐ Ранг: {rank}\n"
     text += f"🛡️ Роль: {role}\n"
     text += f"💬 Сообщений: {messages_count}\n"
-    text += f"📅 В чате: {joined_days} дней\n"
+    text += f"📅 В чате: {days_label}\n"
     text += f"⚠️ Варнов: {warnings}\n"
     text += f"🔐 Верифицирован: {verified}\n"
     text += f"🔇 Мут: {muted}\n"
@@ -49,12 +50,12 @@ def build_member_profile_text(user_name: str, username: str | None, member, chat
 
 @router.message(Command("start"))
 async def cmd_start(message: Message):
-    await message.answer("👋 Привет! Я бот для защиты чата.")
+    await message.reply("👋 Привет! Я бот для защиты чата.")
 
 
 @router.message(Command("help"))
 async def cmd_help(message: Message):
-    await message.answer(MESSAGES["help"])
+    await message.reply(MESSAGES["help"])
 
 
 @router.message(Command("me"))
@@ -87,6 +88,12 @@ async def cmd_me(message: Message):
     except Exception:
         pass
 
+    # Сбрасываем буфер счётчика, чтобы показать актуальное число сообщений.
+    try:
+        await database.db.flush_pending()
+    except Exception:
+        pass
+
     member = await database.db.ensure_member(
         chat_id=chat_id,
         user_id=user_id,
@@ -103,4 +110,4 @@ async def cmd_me(message: Message):
         chat_title=getattr(message.chat, "title", None),
     )
 
-    await message.answer(text)
+    await message.reply(text)

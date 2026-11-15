@@ -57,7 +57,7 @@ def _is_group_chat(message: Message) -> bool:
 async def ensure_group_chat(message: Message) -> bool:
     if _is_group_chat(message):
         return True
-    await message.answer("❌ Эта команда работает только в группах и супергруппах.")
+    await message.reply("❌ Эта команда работает только в группах и супергруппах.")
     return False
 
 
@@ -67,20 +67,20 @@ async def ensure_bot_can_restrict(message: Message, action_label: str) -> bool:
         me = await message.bot.get_me()
         bot_member = await message.chat.get_member(me.id)
     except Exception:
-        await message.answer("❌ Не удалось проверить права бота. Попробуйте ещё раз.")
+        await message.reply("❌ Не удалось проверить права бота. Попробуйте ещё раз.")
         return False
 
     if bot_member.status == "creator":
         return True
 
     if bot_member.status != "administrator":
-        await message.answer(
+        await message.reply(
             f"❌ Для команды {action_label} бот должен быть администратором чата."
         )
         return False
 
     if not getattr(bot_member, "can_restrict_members", False):
-        await message.answer(
+        await message.reply(
             f"❌ Для команды {action_label} у бота нет права 'Блокировать пользователей'."
         )
         return False
@@ -295,13 +295,13 @@ async def cmd_mute(message: Message):
 
     can_mute, reason = await check_rights(message, "mute")
     if not can_mute:
-        await message.answer(reason)
+        await message.reply(reason)
         return
 
     parts = message.text.split()
     reply_target = message.reply_to_message is not None
     if len(parts) < 2 and not reply_target:
-        await message.answer("❌ /mute [id|@user|reply] [10m|5m|1h|5d] [причина]\nПример: /mute @username 30m флуд")
+        await message.reply("❌ /mute [id|@user|reply] [10m|5m|1h|5d] [причина]\nПример: /mute @username 30m флуд")
         return
 
     target_arg = parts[1] if len(parts) > 1 and not reply_target else None
@@ -321,19 +321,19 @@ async def cmd_mute(message: Message):
 
     target = await resolve_target(message, target_arg)
     if target is None:
-        await message.answer("❌ Не удалось определить цель")
+        await message.reply("❌ Не удалось определить цель")
         return
 
     target_id, target_username = target
     if target_id == user_id:
-        await message.answer(MESSAGES["mute_self"])
+        await message.reply(MESSAGES["mute_self"])
         return
 
     await ensure_target_in_db(message, target_id, target_username)
 
     can_mute, reason = await check_rights(message, "mute", target_id)
     if not can_mute:
-        await message.answer(reason)
+        await message.reply(reason)
         return
 
     if not await ensure_bot_can_restrict(message, "/mute"):
@@ -342,7 +342,7 @@ async def cmd_mute(message: Message):
     try:
         chat_member = await message.chat.get_member(target_id)
         if chat_member.status in ["creator", "administrator"]:
-            await message.answer("❌ Нельзя мутить администратора")
+            await message.reply("❌ Нельзя мутить администратора")
             return
     except Exception:
         pass
@@ -351,7 +351,7 @@ async def cmd_mute(message: Message):
     try:
         minutes = parse_duration_to_minutes(raw_duration)
     except ValueError:
-        await message.answer("❌ Неверный формат времени. Примеры: 10m, 30m, 1h, 5d, 5 минут")
+        await message.reply("❌ Неверный формат времени. Примеры: 10m, 30m, 1h, 5d, 5 минут")
         return
 
     reason_parts = parts[2:] if not reply_target else parts[2:] if duration_arg is not None else []
@@ -371,16 +371,16 @@ async def cmd_mute(message: Message):
             until_date=datetime.utcnow() + timedelta(minutes=minutes),
         )
     except TelegramForbiddenError:
-        await message.answer("❌ Бот не может замутить пользователя: не хватает прав.")
+        await message.reply("❌ Бот не может замутить пользователя: не хватает прав.")
         return
     except TelegramBadRequest as e:
-        await message.answer(f"❌ Не удалось замутить пользователя: {e.message}")
+        await message.reply(f"❌ Не удалось замутить пользователя: {e.message}")
         return
 
     target_member = await database.db.get_member(chat_id, target_id)
     name = format_user_name(target_id, target_member.username if target_member else None, message.from_user.full_name)
 
-    await message.answer(MESSAGES["mute_success"].format(user=name, duration=minutes, reason=reason))
+    await message.reply(MESSAGES["mute_success"].format(user=name, duration=minutes, reason=reason))
 
     try:
         await message.bot.send_message(
@@ -403,7 +403,7 @@ async def cmd_unmute(message: Message):
 
     can_unmute, reason = await check_rights(message, "unmute")
     if not can_unmute:
-        await message.answer(reason)
+        await message.reply(reason)
         return
 
     parts = message.text.split()
@@ -412,12 +412,12 @@ async def cmd_unmute(message: Message):
         target_arg = None
 
     if target_arg is None and not message.reply_to_message:
-        await message.answer("❌ /unmute [id|@user|reply]")
+        await message.reply("❌ /unmute [id|@user|reply]")
         return
 
     target = await resolve_target(message, target_arg)
     if target is None:
-        await message.answer("❌ Не удалось определить цель")
+        await message.reply("❌ Не удалось определить цель")
         return
 
     target_id, target_username = target
@@ -442,17 +442,17 @@ async def cmd_unmute(message: Message):
                 ),
             )
         except TelegramForbiddenError:
-            await message.answer("❌ Бот не может размутить пользователя: не хватает прав.")
+            await message.reply("❌ Бот не может размутить пользователя: не хватает прав.")
             return
         except TelegramBadRequest as e:
-            await message.answer(f"❌ Не удалось размутить пользователя: {e.message}")
+            await message.reply(f"❌ Не удалось размутить пользователя: {e.message}")
             return
 
         target_member = await database.db.get_member(chat_id, target_id)
         name = format_user_name(target_id, target_member.username if target_member else None)
-        await message.answer(MESSAGES["unmute_success"].format(user=name))
+        await message.reply(MESSAGES["unmute_success"].format(user=name))
     else:
-        await message.answer(MESSAGES["user_not_found"])
+        await message.reply(MESSAGES["user_not_found"])
 
 @router.message(Command("ban"))
 async def cmd_ban(message: Message):
@@ -465,31 +465,31 @@ async def cmd_ban(message: Message):
 
     can_ban, reason = await check_rights(message, "ban")
     if not can_ban:
-        await message.answer(reason)
+        await message.reply(reason)
         return
 
     parts = message.text.split()
     reply_target = message.reply_to_message is not None
     if len(parts) < 2 and not reply_target:
-        await message.answer("❌ /ban [id|@user|reply] [причина]\nПример: /ban @username спам")
+        await message.reply("❌ /ban [id|@user|reply] [причина]\nПример: /ban @username спам")
         return
 
     target_arg = parts[1] if len(parts) > 1 and not reply_target else None
     target = await resolve_target(message, target_arg)
     if target is None:
-        await message.answer("❌ Не удалось определить цель")
+        await message.reply("❌ Не удалось определить цель")
         return
 
     target_id, target_username = target
     if target_id == user_id:
-        await message.answer(MESSAGES["ban_self"])
+        await message.reply(MESSAGES["ban_self"])
         return
 
     await ensure_target_in_db(message, target_id, target_username)
 
     can_ban, reason = await check_rights(message, "ban", target_id)
     if not can_ban:
-        await message.answer(reason)
+        await message.reply(reason)
         return
 
     if not await ensure_bot_can_restrict(message, "/ban"):
@@ -498,7 +498,7 @@ async def cmd_ban(message: Message):
     try:
         target_member = await message.chat.get_member(target_id)
         if target_member.status in ["creator", "administrator"]:
-            await message.answer("❌ Нельзя банить администратора")
+            await message.reply("❌ Нельзя банить администратора")
             return
     except Exception:
         pass
@@ -510,16 +510,16 @@ async def cmd_ban(message: Message):
     try:
         await message.bot.ban_chat_member(chat_id=chat_id, user_id=target_id)
     except TelegramForbiddenError:
-        await message.answer("❌ Бот не может забанить пользователя: не хватает прав.")
+        await message.reply("❌ Бот не может забанить пользователя: не хватает прав.")
         return
     except TelegramBadRequest as e:
-        await message.answer(f"❌ Не удалось забанить пользователя: {e.message}")
+        await message.reply(f"❌ Не удалось забанить пользователя: {e.message}")
         return
 
     target_db = await database.db.get_member(chat_id, target_id)
     name = format_user_name(target_id, target_db.username if target_db else None)
 
-    await message.answer(MESSAGES["ban_success"].format(user=name, reason=reason))
+    await message.reply(MESSAGES["ban_success"].format(user=name, reason=reason))
 
 @router.message(Command("unban"))
 async def cmd_unban(message: Message):
@@ -531,7 +531,7 @@ async def cmd_unban(message: Message):
 
     can_unban, reason = await check_rights(message, "unban")
     if not can_unban:
-        await message.answer(reason)
+        await message.reply(reason)
         return
 
     parts = message.text.split()
@@ -540,12 +540,12 @@ async def cmd_unban(message: Message):
         target_arg = None
 
     if target_arg is None and not message.reply_to_message:
-        await message.answer("❌ /unban [id|@user|reply]")
+        await message.reply("❌ /unban [id|@user|reply]")
         return
 
     target = await resolve_target(message, target_arg)
     if target is None:
-        await message.answer("❌ Не удалось определить цель")
+        await message.reply("❌ Не удалось определить цель")
         return
 
     target_id, target_username = target
@@ -560,17 +560,17 @@ async def cmd_unban(message: Message):
         try:
             await message.bot.unban_chat_member(chat_id=chat_id, user_id=target_id)
         except TelegramForbiddenError:
-            await message.answer("❌ Бот не может разбанить пользователя: не хватает прав.")
+            await message.reply("❌ Бот не может разбанить пользователя: не хватает прав.")
             return
         except TelegramBadRequest as e:
-            await message.answer(f"❌ Не удалось разбанить пользователя: {e.message}")
+            await message.reply(f"❌ Не удалось разбанить пользователя: {e.message}")
             return
 
         target_member = await database.db.get_member(chat_id, target_id)
         name = format_user_name(target_id, target_member.username if target_member else None)
-        await message.answer(f"✅ Пользователь {name} разбанен!")
+        await message.reply(f"✅ Пользователь {name} разбанен!")
     else:
-        await message.answer(MESSAGES["user_not_found"])
+        await message.reply(MESSAGES["user_not_found"])
 
 @router.message(Command("warn"))
 async def cmd_warn(message: Message):
@@ -583,24 +583,24 @@ async def cmd_warn(message: Message):
 
     can_warn, reason = await check_rights(message, "warn")
     if not can_warn:
-        await message.answer(reason)
+        await message.reply(reason)
         return
 
     parts = message.text.split()
     reply_target = message.reply_to_message is not None
     if len(parts) < 2 and not reply_target:
-        await message.answer("❌ /warn [id|@user|reply] [причина]")
+        await message.reply("❌ /warn [id|@user|reply] [причина]")
         return
 
     target_arg = parts[1] if len(parts) > 1 and not reply_target else None
     target = await resolve_target(message, target_arg)
     if target is None:
-        await message.answer("❌ Не удалось определить цель")
+        await message.reply("❌ Не удалось определить цель")
         return
 
     target_id, target_username = target
     if target_id == user_id:
-        await message.answer("❌ Нельзя варнить себя!")
+        await message.reply("❌ Нельзя варнить себя!")
         return
 
     await ensure_target_in_db(message, target_id, target_username)
@@ -617,7 +617,7 @@ async def cmd_warn(message: Message):
 
     name = format_user_name(target_id, target_member.username if target_member else None)
 
-    await message.answer(MESSAGES["warn_success"].format(user=name, count=warnings_count, reason=reason))
+    await message.reply(MESSAGES["warn_success"].format(user=name, count=warnings_count, reason=reason))
 
     if warnings_count >= max_warnings:
         await database.db.ban_user(chat_id, target_id, 0, "Достигнут лимит предупреждений")
@@ -625,9 +625,9 @@ async def cmd_warn(message: Message):
         try:
             await message.bot.ban_chat_member(chat_id=chat_id, user_id=target_id)
         except Exception:
-            await message.answer("❌ Не удалось выдать автобан: проверьте права бота.")
+            await message.reply("❌ Не удалось выдать автобан: проверьте права бота.")
 
-        await message.answer(MESSAGES["ban_limit"].format(user=name))
+        await message.reply(MESSAGES["ban_limit"].format(user=name))
 
 
 @router.message(Command("kick"))
@@ -641,31 +641,31 @@ async def cmd_kick(message: Message):
 
     can_kick, reason = await check_rights(message, "kick")
     if not can_kick:
-        await message.answer(reason)
+        await message.reply(reason)
         return
 
     parts = message.text.split()
     reply_target = message.reply_to_message is not None
     if len(parts) < 2 and not reply_target:
-        await message.answer("❌ /kick [id|@user|reply] [причина]")
+        await message.reply("❌ /kick [id|@user|reply] [причина]")
         return
 
     target_arg = parts[1] if len(parts) > 1 and not reply_target else None
     target = await resolve_target(message, target_arg)
     if target is None:
-        await message.answer("❌ Не удалось определить цель")
+        await message.reply("❌ Не удалось определить цель")
         return
 
     target_id, target_username = target
     if target_id == user_id:
-        await message.answer(MESSAGES["kick_self"])
+        await message.reply(MESSAGES["kick_self"])
         return
 
     await ensure_target_in_db(message, target_id, target_username)
 
     can_kick, reason = await check_rights(message, "kick", target_id)
     if not can_kick:
-        await message.answer(reason)
+        await message.reply(reason)
         return
 
     if not await ensure_bot_can_restrict(message, "/kick"):
@@ -676,7 +676,7 @@ async def cmd_kick(message: Message):
     try:
         target_member = await message.chat.get_member(target_id)
         if target_member.status in ["creator", "administrator"]:
-            await message.answer("❌ Нельзя кикать администратора")
+            await message.reply("❌ Нельзя кикать администратора")
             return
     except Exception:
         pass
@@ -684,15 +684,15 @@ async def cmd_kick(message: Message):
     try:
         await message.bot.ban_chat_member(chat_id=chat_id, user_id=target_id, revoke_messages=True)
     except TelegramForbiddenError:
-        await message.answer("❌ Бот не может кикнуть пользователя: не хватает прав.")
+        await message.reply("❌ Бот не может кикнуть пользователя: не хватает прав.")
         return
     except TelegramBadRequest as e:
-        await message.answer(f"❌ Не удалось кикнуть пользователя: {e.message}")
+        await message.reply(f"❌ Не удалось кикнуть пользователя: {e.message}")
         return
 
     target_db = await database.db.get_member(chat_id, target_id)
     name = format_user_name(target_id, target_db.username if target_db else None)
-    await message.answer(MESSAGES["kick_success"].format(user=name, reason=reason))
+    await message.reply(MESSAGES["kick_success"].format(user=name, reason=reason))
 
 
 @router.message(Command("setrole"))
@@ -706,17 +706,17 @@ async def cmd_setrole(message: Message):
 
     can_set, reason = await check_rights(message, "setrole")
     if not can_set:
-        await message.answer(reason)
+        await message.reply(reason)
         return
 
     parts = message.text.split()
     if len(parts) < 3:
-        await message.answer("❌ /setrole [id|@user|reply] [user|moderator|admin]\nПример: /setrole @username moderator")
+        await message.reply("❌ /setrole [id|@user|reply] [user|moderator|admin]\nПример: /setrole @username moderator")
         return
 
     target = await resolve_target(message, parts[1])
     if target is None:
-        await message.answer("❌ Не удалось определить цель")
+        await message.reply("❌ Не удалось определить цель")
         return
 
     target_id, target_username = target
@@ -724,7 +724,7 @@ async def cmd_setrole(message: Message):
     role = parts[2].lower()
     valid_roles = ["user", "moderator", "admin"]
     if role not in valid_roles:
-        await message.answer(MESSAGES["role_set_error"])
+        await message.reply(MESSAGES["role_set_error"])
         return
 
     try:
@@ -732,12 +732,12 @@ async def cmd_setrole(message: Message):
         if actor_member.status not in ["creator", "administrator"]:
             actor_db = await database.db.get_member(chat_id, user_id)
             if not actor_db or get_rank_level(actor_db.rank) < 4:
-                await message.answer(MESSAGES["no_permission"])
+                await message.reply(MESSAGES["no_permission"])
                 return
     except Exception:
         actor_db = await database.db.get_member(chat_id, user_id)
         if not actor_db or get_rank_level(actor_db.rank) < 4:
-            await message.answer(MESSAGES["no_permission"])
+            await message.reply(MESSAGES["no_permission"])
             return
 
     await database.db.update_member(chat_id, target_id, rank=role)
@@ -747,7 +747,7 @@ async def cmd_setrole(message: Message):
 
     target_db = await database.db.get_member(chat_id, target_id)
     name = format_user_name(target_id, target_db.username if target_db else None)
-    await message.answer(MESSAGES["role_set_success"].format(user=name, role=role))
+    await message.reply(MESSAGES["role_set_success"].format(user=name, role=role))
 
 @router.message(Command("unwarn"))
 async def cmd_unwarn(message: Message):
@@ -759,7 +759,7 @@ async def cmd_unwarn(message: Message):
     
     can_unwarn, reason = await check_rights(message, "warn")
     if not can_unwarn:
-        await message.answer(reason)
+        await message.reply(reason)
         return
     
     parts = message.text.split()
@@ -767,12 +767,12 @@ async def cmd_unwarn(message: Message):
     target_arg = parts[1] if len(parts) > 1 and not reply_target else None
 
     if target_arg is None and not reply_target:
-        await message.answer("❌ /unwarn [id|@user|reply]")
+        await message.reply("❌ /unwarn [id|@user|reply]")
         return
 
     target = await resolve_target(message, target_arg)
     if target is None:
-        await message.answer("❌ Не удалось определить цель")
+        await message.reply("❌ Не удалось определить цель")
         return
 
     target_id, target_username = target
@@ -780,7 +780,7 @@ async def cmd_unwarn(message: Message):
     
     removed = await database.db.remove_last_warning(chat_id, target_id)
     if not removed:
-        await message.answer("❌ У пользователя нет предупреждений")
+        await message.reply("❌ У пользователя нет предупреждений")
         return
     
     target = await database.db.get_member(chat_id, target_id)
@@ -791,7 +791,7 @@ async def cmd_unwarn(message: Message):
     
     name = format_user_name(target_id, target.username if target else None)
     
-    await message.answer(
+    await message.reply(
         MESSAGES["unwarn_success"].format(user=name, count=max(0, warnings_count), max=max_warnings)
     )
 
@@ -811,7 +811,7 @@ async def cmd_mywarnings(message: Message):
     max_w = chat.warnings_to_ban if chat else 3
     
     if count == 0:
-        await message.answer(MESSAGES["warn_info"].format(count=count, max=max_w))
+        await message.reply(MESSAGES["warn_info"].format(count=count, max=max_w))
         return
     
     text = f"⚠️ <b>Ваши предупреждения ({count}/{max_w}):</b>\n\n"
@@ -820,7 +820,7 @@ async def cmd_mywarnings(message: Message):
         text += f"{i}. {w.reason}\n"
         text += f"   📅 {w.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
     
-    await message.answer(text)
+    await message.reply(text)
 
 
 @router.message(F.text.regexp(r"(?i)^/?(старт|помощь|хелп|я|профиль|парофиль|варн|снятьварн|снять|моиварны|мои|бан|разбан|размут|мут|кик|роль|повысить|понизить|ранги|ранг|инфо|настройки|капча|лимитстикеров|лимитварнов|лимит|времямут|время|админпомощь|админ|админы)\b"))

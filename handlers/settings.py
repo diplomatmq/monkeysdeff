@@ -26,7 +26,7 @@ async def check_owner_rights(message: Message) -> Tuple[bool, str]:
     if chat_member and get_rank_level(chat_member.rank) >= 5:
         return True, chat_member.rank
     
-    await message.answer(MESSAGES["no_permission"])
+    await message.reply(MESSAGES["no_permission"])
     return False, ""
 
 def get_rank_level(rank: str) -> int:
@@ -46,10 +46,10 @@ async def cmd_settings(message: Message):
     try:
         member = await message.chat.get_member(user_id)
         if member.status != "creator":
-            await message.answer(MESSAGES["no_permission"])
+            await message.reply(MESSAGES["no_permission"])
             return
     except Exception:
-        await message.answer(MESSAGES["no_permission"])
+        await message.reply(MESSAGES["no_permission"])
         return
     
     chat = await database.db.get_or_create_chat(chat_id, message.chat.title)
@@ -66,7 +66,7 @@ async def cmd_settings(message: Message):
     text += f"⚠️ Варнов до бана: {chat.warnings_to_ban}\n"
     text += f"🔇 Время мута: {chat.default_mute_duration} мин\n"
     
-    await message.answer(text)
+    await message.reply(text)
 
 @router.message(Command("setcaptcha"))
 async def cmd_set_captcha(message: Message):
@@ -77,15 +77,15 @@ async def cmd_set_captcha(message: Message):
     try:
         member = await message.chat.get_member(user_id)
         if member.status != "creator":
-            await message.answer(MESSAGES["no_permission"])
+            await message.reply(MESSAGES["no_permission"])
             return
     except Exception:
-        await message.answer(MESSAGES["no_permission"])
+        await message.reply(MESSAGES["no_permission"])
         return
     
     parts = message.text.split()
     if len(parts) < 2:
-        await message.answer(
+        await message.reply(
             "❌ /setcaptcha on|off\n"
             "   /setcaptcha_timeout [секунды]\n"
             "   /setcaptcha_attempts [число]"
@@ -96,24 +96,24 @@ async def cmd_set_captcha(message: Message):
     
     if param == "on":
         await database.db.update_chat(chat_id, captcha_enabled=True)
-        await message.answer("✅ Капча включена")
+        await message.reply("✅ Капча включена")
     elif param == "off":
         await database.db.update_chat(chat_id, captcha_enabled=False)
-        await message.answer("✅ Капча выключена")
+        await message.reply("✅ Капча выключена")
     elif param == "timeout":
         try:
             timeout = int(parts[2])
             await database.db.update_chat(chat_id, captcha_timeout=timeout)
-            await message.answer(f"✅ Таймаут капчи: {timeout} сек")
+            await message.reply(f"✅ Таймаут капчи: {timeout} сек")
         except (ValueError, IndexError):
-            await message.answer("❌ Укажите число")
+            await message.reply("❌ Укажите число")
     elif param == "attempts":
         try:
             attempts = int(parts[2])
             await database.db.update_chat(chat_id, captcha_attempts=attempts)
-            await message.answer(f"✅ Попыток капчи: {attempts}")
+            await message.reply(f"✅ Попыток капчи: {attempts}")
         except (ValueError, IndexError):
-            await message.answer("❌ Укажите число")
+            await message.reply("❌ Укажите число")
 
 @router.message(Command("setstickerlimit"))
 async def cmd_set_sticker_limit(message: Message):
@@ -124,23 +124,23 @@ async def cmd_set_sticker_limit(message: Message):
     try:
         member = await message.chat.get_member(user_id)
         if member.status != "creator":
-            await message.answer(MESSAGES["no_permission"])
+            await message.reply(MESSAGES["no_permission"])
             return
     except Exception:
-        await message.answer(MESSAGES["no_permission"])
+        await message.reply(MESSAGES["no_permission"])
         return
     
     parts = message.text.split()
     if len(parts) < 2:
-        await message.answer("❌ /setstickerlimit [число]")
+        await message.reply("❌ /setstickerlimit [число]")
         return
     
     try:
         limit = int(parts[1])
         await database.db.update_chat(chat_id, sticker_limit=limit)
-        await message.answer(f"✅ Лимит стикеров: {limit}")
+        await message.reply(f"✅ Лимит стикеров: {limit}")
     except ValueError:
-        await message.answer("❌ Укажите число")
+        await message.reply("❌ Укажите число")
 
 @router.message(Command("setwarnings"))
 async def cmd_set_warnings(message: Message):
@@ -151,23 +151,23 @@ async def cmd_set_warnings(message: Message):
     try:
         member = await message.chat.get_member(user_id)
         if member.status != "creator":
-            await message.answer(MESSAGES["no_permission"])
+            await message.reply(MESSAGES["no_permission"])
             return
     except Exception:
-        await message.answer(MESSAGES["no_permission"])
+        await message.reply(MESSAGES["no_permission"])
         return
     
     parts = message.text.split()
     if len(parts) < 2:
-        await message.answer("❌ /setwarnings [число]")
+        await message.reply("❌ /setwarnings [число]")
         return
     
     try:
         count = int(parts[1])
         await database.db.update_chat(chat_id, warnings_to_ban=count)
-        await message.answer(f"✅ Варнов до бана: {count}")
+        await message.reply(f"✅ Варнов до бана: {count}")
     except ValueError:
-        await message.answer("❌ Укажите число")
+        await message.reply("❌ Укажите число")
 
 @router.message(Command("setmutetime"))
 async def cmd_set_mute_time(message: Message):
@@ -178,25 +178,25 @@ async def cmd_set_mute_time(message: Message):
     try:
         member = await message.chat.get_member(user_id)
         if member.status != "creator":
-            await message.answer(MESSAGES["no_permission"])
+            await message.reply(MESSAGES["no_permission"])
             return
     except Exception:
-        await message.answer(MESSAGES["no_permission"])
+        await message.reply(MESSAGES["no_permission"])
         return
     
     parts = message.text.split()
     if len(parts) < 2:
-        await message.answer("❌ /setmutetime [минуты]")
+        await message.reply("❌ /setmutetime [минуты]")
         return
     
     try:
         minutes = int(parts[1])
         await database.db.update_chat(chat_id, default_mute_duration=minutes)
-        await message.answer(f"✅ Время мута: {minutes} мин")
+        await message.reply(f"✅ Время мута: {minutes} мин")
     except ValueError:
-        await message.answer("❌ Укажите число")
+        await message.reply("❌ Укажите число")
 
 @router.message(Command("help_admin"))
 async def cmd_help_admin(message: Message):
     """Помощь по настройкам"""
-    await message.answer(MESSAGES["settings_help"])
+    await message.reply(MESSAGES["settings_help"])

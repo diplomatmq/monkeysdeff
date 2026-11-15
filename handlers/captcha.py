@@ -9,6 +9,11 @@ from aiogram.filters import ChatMemberUpdatedFilter
 from aiogram.filters.command import Command
 from aiogram.fsm.state import State, StatesGroup
 
+try:  # Эфемерные сообщения появились в aiogram 3.31 (Bot API 10.3)
+    from aiogram.types import EphemeralMessageParameters
+except ImportError:  # pragma: no cover
+    EphemeralMessageParameters = None
+
 import database
 from config import CAPTCHA_QUESTIONS, MESSAGES
 
@@ -19,6 +24,80 @@ bot: Bot | None = None
 def get_bot() -> Bot | None:
     """Возвращает текущий экземпляр бота aiogram."""
     return bot
+
+
+def _ephemeral_parameters(user_id: int, callback_query_id: str | None = None):
+    """Создаёт параметры эфемерного сообщения (видно только получателю).
+
+    Возвращает None, если установленная версия aiogram не поддерживает эфемерные сообщения.
+    """
+    if EphemeralMessageParameters is None:
+        return None
+    try:
+        return EphemeralMessageParameters(
+            receiver_user_id=user_id,
+            callback_query_id=callback_query_id,
+        )
+    except Exception:
+        return None
+
+
+async def send_ephemeral_message(
+    chat_id: int,
+    user_id: int,
+    text: str,
+    reply_markup=None,
+    callback_query_id: str | None = None,
+) -> bool:
+    """Отправляет эфемерное сообщение (видит только указанный пользователь).
+
+    Возвращает True при успешной отправке.
+    """
+    current_bot = get_bot()
+    if current_bot is None:
+        return False
+
+    params = _ephemeral_parameters(user_id, callback_query_id)
+    if params is None:
+        return False
+
+    try:
+        await current_bot.send_message(
+            chat_id,
+            text,
+            reply_markup=reply_markup,
+            ephemeral_message_parameters=params,
+        )
+        return True
+    except TypeError:
+        # Старая версия aiogram не знает аргумента ephemeral_message_parameters
+        return False
+    except Exception as e:
+        print(f"[DEBUG] ephemeral message failed: {e}")
+        return False
+
+
+async def remove_ephemeral_message(bot, chat_id: int, ephemeral_message_id: int | None) -> None:
+    """Удаляет эфемерное сообщение, если это возможно."""
+    if not ephemeral_message_id:
+        return
+    try:
+        await bot.delete_ephemeral_message(chat_id=chat_id, message_id=ephemeral_message_id)
+    except Exception:
+        pass
+
+
+async def _remove_captcha_message(bot, data: dict) -> None:
+    """Удаляет сообщение активной капчи (обычное или эфемерное)."""
+    if data.get("is_ephemeral"):
+        await remove_ephemeral_message(bot, data.get("chat_id"), data.get("ephemeral_message_id"))
+        return
+    message_id = data.get("message_id")
+    if message_id:
+        try:
+            await bot.delete_message(data.get("chat_id"), message_id)
+        except Exception:
+            pass
 
 
 class CaptchaStates(StatesGroup):
@@ -148,12 +227,7 @@ async def start_captcha(chat_id: int, user_id: int, name: str, username: str = N
             print(f"[DEBUG] captcha already active: chat={chat_id}, user={user_id}")
             return
         if existing:
-            old = existing.get("message_id")
-            if old:
-                try:
-                    await bot.delete_message(chat_id, old)
-                except Exception:
-                    pass
+            await _remove_captcha_message(bot, existing)
 
         try:
             await bot.restrict_chat_member(
@@ -180,25 +254,47 @@ async def start_captcha(chat_id: int, user_id: int, name: str, username: str = N
             "correct_idx": correct_idx,
             "expires_at": datetime.utcnow() + timedelta(seconds=timeout),
             "message_id": None,
+            "is_ephemeral": False,
+            "ephemeral_message_id": None,
             "chat_id": chat_id,
             "user_id": user_id,
             "name": name
         }
         active_captchas.setdefault(chat_id, {})[user_id] = captcha_data
         keyboard = get_captcha_keyboard(question_idx, options, captcha_id)
+        text = (
+            MESSAGES["welcome_new"].format(name=name) + "\n\n" +
+            MESSAGES["captcha_title"] + "\n\n" +
+            question.question + "\n\n" +
+            MESSAGES["captcha_time"].format(seconds=timeout)
+        )
 
+        # Пытаемся отправить приветствие с капчей как эфемерное сообщение:
+        # тогда его видит только входящий участник, а не весь чат.
         try:
             print(f"[DEBUG] Sending captcha to chat {chat_id}")
-            msg = await bot.send_message(
-                chat_id,
-                MESSAGES["welcome_new"].format(name=name) + "\n\n" +
-                MESSAGES["captcha_title"] + "\n\n" +
-                question.question + "\n\n" +
-                MESSAGES["captcha_time"].format(seconds=timeout),
-                reply_markup=keyboard
-            )
-            captcha_data["message_id"] = msg.message_id
-            print(f"[DEBUG] Captcha sent, message_id={msg.message_id}")
+            params = _ephemeral_parameters(user_id)
+            if params is not None:
+                try:
+                    msg = await bot.send_message(
+                        chat_id,
+                        text,
+                        reply_markup=keyboard,
+                        ephemeral_message_parameters=params,
+                    )
+                    captcha_data["is_ephemeral"] = True
+                    captcha_data["ephemeral_message_id"] = getattr(msg, "ephemeral_message_id", None)
+                    print("[DEBUG] Captcha sent as ephemeral message")
+                except TypeError:
+                    params = None
+                except Exception as e:
+                    print(f"[DEBUG] Ephemeral captcha failed, fallback to normal: {e}")
+                    params = None
+
+            if params is None:
+                msg = await bot.send_message(chat_id, text, reply_markup=keyboard)
+                captcha_data["message_id"] = msg.message_id
+                print(f"[DEBUG] Captcha sent, message_id={msg.message_id}")
         except Exception as e:
             active_captchas.get(chat_id, {}).pop(user_id, None)
             print(f"[DEBUG] Error sending captcha: {e}")
@@ -218,11 +314,7 @@ async def cleanup_task():
 
             for chat_id, user_id, data in expired:
                 if bot is not None:
-                    if data.get("message_id"):
-                        try:
-                            await bot.delete_message(chat_id, data["message_id"])
-                        except Exception:
-                            pass
+                    await _remove_captcha_message(bot, data)
 
                     try:
                         await bot.ban_chat_member(chat_id, user_id)
@@ -385,12 +477,9 @@ async def on_captcha_answer(callback: CallbackQuery):
             await callback.answer("Эта капча не для вас", show_alert=True)
             return
     
-    # Удаляем сообщение
-    try:
-        await callback.message.delete()
-    except Exception:
-        pass
-    
+    # Удаляем сообщение капчи (обычное или эфемерное)
+    await _remove_captcha_message(callback.bot, captcha)
+
     if answer_idx == captcha["correct_idx"]:
         # Правильно!
         if chat_id in active_captchas and user_id in active_captchas[chat_id]:
@@ -405,12 +494,22 @@ async def on_captcha_answer(callback: CallbackQuery):
                 user_id=user_id,
                 permissions=get_full_permissions()
             )
-            await callback.bot.send_message(
-                chat_id,
-                f"{callback.from_user.full_name} {MESSAGES['captcha_success']}"
-            )
         except Exception as e:
             print(f"[DEBUG] Error removing restrictions: {e}")
+
+        # Сообщение об успехе показываем только самому пользователю (эфемерно).
+        success_text = f"{callback.from_user.full_name} {MESSAGES['captcha_success']}"
+        sent = await send_ephemeral_message(
+            chat_id,
+            user_id,
+            success_text,
+            callback_query_id=callback.id,
+        )
+        if not sent:
+            try:
+                await callback.bot.send_message(chat_id, success_text)
+            except Exception as e:
+                print(f"[DEBUG] Error sending captcha success: {e}")
     else:
         # Неправильно
         if chat_id in active_captchas and user_id in active_captchas[chat_id]:

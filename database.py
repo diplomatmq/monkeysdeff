@@ -3,7 +3,7 @@ import asyncio
 import datetime
 from typing import Optional, List, Dict, Any
 from collections import defaultdict
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Text, BigInteger, Float, select, func
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, Date, DateTime, Text, BigInteger, Float, UniqueConstraint, select, func, and_
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import sessionmaker
@@ -66,6 +66,20 @@ class ChatMember(Base):
     # Составной уникальный индекс
     __table_args__ = (
         {"sqlite_autoincrement": True},
+    )
+
+class DailyMessageStat(Base):
+    """Дневная статистика сообщений участника (для команд топа)"""
+    __tablename__ = "daily_message_stats"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    chat_id = Column(BigInteger, nullable=False, index=True)
+    user_id = Column(BigInteger, nullable=False, index=True)
+    date = Column(Date, nullable=False, index=True)
+    messages_count = Column(Integer, default=0)
+
+    __table_args__ = (
+        UniqueConstraint("chat_id", "user_id", "date", name="uq_daily_message_stat"),
     )
 
 class Warning(Base):
@@ -193,6 +207,8 @@ class Database:
         buffer_copy = dict(self.message_increment_buffer)
         self.message_increment_buffer.clear()
 
+        today = datetime.datetime.utcnow().date()
+
         async with self.async_session() as session:
             for (chat_id, user_id), count in buffer_copy.items():
                 try:
@@ -207,6 +223,26 @@ class Database:
                         member.last_activity = datetime.datetime.utcnow()
                 except Exception as e:
                     print(f"[ERROR] Error incrementing message count for {chat_id}:{user_id}: {e}")
+
+                try:
+                    stat_result = await session.execute(
+                        select(DailyMessageStat)
+                        .where(DailyMessageStat.chat_id == chat_id)
+                        .where(DailyMessageStat.user_id == user_id)
+                        .where(DailyMessageStat.date == today)
+                    )
+                    stat = stat_result.scalar_one_or_none()
+                    if stat:
+                        stat.messages_count = (stat.messages_count or 0) + count
+                    else:
+                        session.add(DailyMessageStat(
+                            chat_id=chat_id,
+                            user_id=user_id,
+                            date=today,
+                            messages_count=count,
+                        ))
+                except Exception as e:
+                    print(f"[ERROR] Error incrementing daily stat for {chat_id}:{user_id}: {e}")
 
             await session.commit()
     
@@ -422,6 +458,74 @@ class Database:
         # Добавляем в буфер вместо прямого обращения к БД
         self.message_increment_buffer[(chat_id, user_id)] += 1
         return None
+
+    async def flush_pending(self) -> None:
+        """Принудительно сбрасывает буфер счётчиков (для точной статистики)."""
+        await self._flush_message_buffer()
+
+    async def get_top_messages(self, chat_id: int, since_date: Optional[datetime.date] = None, limit: int = 10) -> List[Dict[str, Any]]:
+        """Топ участников чата по количеству сообщений за период (по дневной статистике).
+
+        since_date=None — за всё время (сумма по всем дням).
+        """
+        total = func.sum(DailyMessageStat.messages_count).label("total")
+        query = (
+            select(
+                DailyMessageStat.user_id,
+                total,
+                ChatMember.username,
+                ChatMember.first_name,
+            )
+            .select_from(DailyMessageStat)
+            .outerjoin(
+                ChatMember,
+                and_(
+                    ChatMember.chat_id == DailyMessageStat.chat_id,
+                    ChatMember.user_id == DailyMessageStat.user_id,
+                ),
+            )
+            .where(DailyMessageStat.chat_id == chat_id)
+        )
+        if since_date is not None:
+            query = query.where(DailyMessageStat.date >= since_date)
+
+        query = (
+            query.group_by(DailyMessageStat.user_id, ChatMember.username, ChatMember.first_name)
+            .order_by(total.desc())
+            .limit(limit)
+        )
+
+        async with self.async_session() as session:
+            result = await session.execute(query)
+            return [
+                {
+                    "user_id": row.user_id,
+                    "count": int(row.total or 0),
+                    "username": row.username,
+                    "first_name": row.first_name,
+                }
+                for row in result.fetchall()
+            ]
+
+    async def get_top_all_time(self, chat_id: int, limit: int = 10) -> List[Dict[str, Any]]:
+        """Топ участников чата по количеству сообщений за всё время."""
+        async with self.async_session() as session:
+            result = await session.execute(
+                select(ChatMember)
+                .where(ChatMember.chat_id == chat_id)
+                .where(ChatMember.messages_count > 0)
+                .order_by(ChatMember.messages_count.desc())
+                .limit(limit)
+            )
+            return [
+                {
+                    "user_id": member.user_id,
+                    "count": int(member.messages_count or 0),
+                    "username": member.username,
+                    "first_name": member.first_name,
+                }
+                for member in result.scalars().all()
+            ]
     
     # === WARNINGS ===
     async def add_warning(self, chat_id: int, user_id: int, moderator_id: int, reason: str) -> Warning:
