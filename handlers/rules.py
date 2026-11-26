@@ -1,11 +1,11 @@
-"""Правила чата: установка и просмотр через команду +rules.
+"""Правила чата: установка через +rules, просмотр через слово «правила».
 
 Формат установки — команда и текст правил в одном сообщении, текст с новой строки:
     +rules
     1. Будь вежлив
     2. Без спама <кастомный эмодзи>
 
-Просмотр — отправить +rules без текста.
+Просмотр — отправить слово «правила» (без текста после него).
 
 Устанавливать правила могут владелец чата и старшая обезьяна (ранг admin и выше).
 """
@@ -22,9 +22,14 @@ from config import MESSAGES, get_rank_level
 
 router = Router()
 
-# Команда в начале сообщения
-RULE_FILTER_RE = r"(?i)^\+rules\b"
+# Ловит либо +rules, либо слово "правила"
+RULE_FILTER_RE = r"(?i)^(\+rules\b|правила\s*$)"
+
+# Только установка
 RULE_COMMAND_RE = re.compile(r"(?i)^\+rules\b[ \t]*")
+
+# Только просмотр
+VIEW_RULES_RE = re.compile(r"(?i)^правила\s*$")
 
 # Простые теги форматирования
 _SIMPLE_TAGS = {
@@ -154,24 +159,15 @@ async def can_manage_rules(message: Message) -> bool:
 
 @router.message(F.text.regexp(RULE_FILTER_RE))
 async def cmd_rules(message: Message):
-    """+rules — задать правила (владелец/старшая обезьяна) или показать их."""
+    """правила — показать правила; +rules + текст — установить."""
     if message.from_user is None or message.from_user.is_bot:
         return
 
     raw = message.text or ""
-    match = RULE_COMMAND_RE.match(raw)
-    if not match:
-        return
-
-    start_index = match.end()
-    while start_index < len(raw) and raw[start_index] == "\n":
-        start_index += 1
-
-    body = raw[start_index:]
     chat_id = message.chat.id
 
-    # Показ правил
-    if not body.strip():
+    # ---- Просмотр: только слово "правила" ----
+    if VIEW_RULES_RE.match(raw):
         chat = await database.db.get_chat(chat_id)
         rules = chat.rules_text if chat else None
         if not rules:
@@ -184,7 +180,21 @@ async def cmd_rules(message: Message):
             await message.reply("❌ Не удалось отправить правила.")
         return
 
-    # Установка правил
+    # ---- Установка: +rules + текст ----
+    match = RULE_COMMAND_RE.match(raw)
+    if not match:
+        return
+
+    start_index = match.end()
+    while start_index < len(raw) and raw[start_index] == "\n":
+        start_index += 1
+
+    body = raw[start_index:]
+
+    # +rules без текста — ничего не делаем
+    if not body.strip():
+        return
+
     if not await can_manage_rules(message):
         await message.reply(MESSAGES["no_permission"])
         return
@@ -197,4 +207,4 @@ async def cmd_rules(message: Message):
     await database.db.get_or_create_chat(chat_id, message.chat.title)
     await database.db.update_chat(chat_id, rules_text=html)
 
-    await message.reply("✅ Правила обновлены. Посмотреть: +rules")
+    await message.reply("✅ Правила обновлены. Посмотреть: правила")
