@@ -33,6 +33,9 @@ class Chat(Base):
     warnings_to_ban = Column(Integer, default=3)
     default_mute_duration = Column(Integer, default=10)
     
+    # Правила чата (хранятся как HTML с поддержкой кастомных эмодзи)
+    rules_text = Column(Text, nullable=True)
+    
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
@@ -174,19 +177,27 @@ class Database:
 
     async def _migrate_missing_columns(self):
         """Добавляет отсутствующие колонки в старые SQLite-базы."""
-        async with self.async_engine.begin() as conn:
-            result = await conn.exec_driver_sql("PRAGMA table_info(chat_members)")
-            columns = [row[1] for row in result]
+        migrations = {
+            "chat_members": [
+                ("captcha_attempts", "INTEGER DEFAULT 0"),
+                ("messages_count", "INTEGER DEFAULT 0"),
+            ],
+            "chats": [
+                ("rules_text", "TEXT"),
+            ],
+        }
 
-        for column_name, column_type, default_value in [
-            ("captcha_attempts", "INTEGER DEFAULT 0", "0"),
-            ("messages_count", "INTEGER DEFAULT 0", "0"),
-        ]:
-            if column_name not in columns:
-                async with self.async_engine.begin() as conn:
-                    await conn.exec_driver_sql(
-                        f"ALTER TABLE chat_members ADD COLUMN {column_name} {column_type}"
-                    )
+        for table_name, columns_spec in migrations.items():
+            async with self.async_engine.begin() as conn:
+                result = await conn.exec_driver_sql(f"PRAGMA table_info({table_name})")
+                existing_columns = [row[1] for row in result]
+
+            for column_name, column_type in columns_spec:
+                if column_name not in existing_columns:
+                    async with self.async_engine.begin() as conn:
+                        await conn.exec_driver_sql(
+                            f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
+                        )
 
     async def _flush_message_buffer_loop(self):
         """Фоновая задача для периодического сброса буфера сообщений в БД"""

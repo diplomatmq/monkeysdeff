@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 import database
 from config import CAPTCHA_QUESTIONS
 from database import Database
-from handlers import captcha, antispam, moderation, ranks, settings, common, currency, top
+from handlers import captcha, antispam, moderation, ranks, settings, common, currency, top, rules
 
 import os
 db_path = os.path.join(os.path.dirname(__file__), "data", "bot.db")
@@ -56,6 +56,8 @@ async def main():
     dp = Dispatcher(storage=MemoryStorage())
     
     dp.include_router(common.router)
+    # rules идёт раньше captcha/antispam: ловит сообщения "+rules" до общих F.text.
+    dp.include_router(rules.router)
     dp.include_router(moderation.router)
     dp.include_router(ranks.router)
     dp.include_router(settings.router)
